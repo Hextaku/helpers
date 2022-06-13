@@ -72,7 +72,27 @@ Begin {
 Process {
     try {
         Add-Content -Path $SELog -Value "$(Get-Date -Format "yy.MM.dd hh:mm:ss") INFO  ServerEye.Task.Logic.PowerShell - Trigger system restart with Arguments: $($startProcessParams.ArgumentList)" 
-        Start-Process @startProcessParams
+        $RestartProcess = Start-Process @startProcessParams
+
+        $gpos = Get-ChildItem -Path "Registry::\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Shutdown"
+
+        foreach($gpo in $gpos){
+            $gpoLocation = "Registry::\" + $gpo.Name
+            $subGpos = Get-ChildItem -Path $gpoLocation
+            Write-Output $subGpos
+        
+            foreach($subGpo in $subGpos){
+                    $gpoScript = ""
+                    [string]$gpoScript = $subGpo.GetValue("Script")
+                    Write-Output $gpoScript
+                    if($gpoScript.Contains("triggerPatchRun.cmd")){
+                        Write-Output Match FOUND!
+                        $RestartProcess.WaitForExit()
+                        Start-Process $gpoScript -ArgumentList "force"
+                    }
+            }
+        }
+
  
     }
     catch {
